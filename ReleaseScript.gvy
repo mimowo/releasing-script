@@ -1,3 +1,4 @@
+
 def env = System.getenv()
 
 releaseVersion = env['RELEASE_VERSION']
@@ -33,26 +34,42 @@ def git(args) {
   runCommand(git_cmd + " " + args)
 }
 
-def deleteLocalReleaseBranchIfNeeded() {
+def checkIfLocalBranchExists(branchName) {
   try {
-    git('rev-parse --verify ' + releaseBranch)
+    git('rev-parse --verify ' + branchName)
+    return true;
   } catch (all) {
-    println "[INFO] Local branch " + releaseBranch + " does not exist, continue."
-    return null
+    return false;
   }
-  println "[INFO] Local branch " + releaseBranch + " exits, removing."
-  git('branch -D ' + releaseBranch)
 }
 
-def verifyTagDoesntExist() {
+def deleteLocalBranchIfExists(branchName) {
+  if (checkIfLocalBranchExists(branchName)) {
+    println "[INFO] Local branch " + branchName + " exits, removing."
+    git('branch -D ' + branchName)
+  } else {
+    println "[INFO] Local branch " + branchName + " does not exist, continue."
+  }
+}
+
+def deleteLocalTagIfExists(tagName) {
+  if (checkIfLocalBranchExists(tagName)) {
+    println "[INFO] Local tag " + tagName + " exits, removing."
+    git('tag -d ' + tagName)
+  } else {
+    println "[INFO] Local tag " + tagName + " does not exist, continue."
+  }
+}
+
+def verifyRemoteTagDoesntExist(tagName) {
   try {
-    git('ls-remote --tags --exit-code origin ' + releaseTag)
+    git('ls-remote --tags --exit-code origin ' + tagName)
     //git('ls-remote --heads --exit-code origin ' + releaseBranch)
   } catch (RuntimeException e) {
-    println "[INFO] Tag " + releaseTag + " does not exist yet, continue."
+    println "[INFO] Tag " + tagName + " does not exist yet, continue."
     return null
   }
-  throw new RuntimeException("Tag " + releaseTag + " already exists!")
+  throw new RuntimeException("Tag " + tagName + " already exists!")
 }
 
 def createReleaseBranch() {
@@ -70,12 +87,12 @@ def commitAndCheckoutReleaseBranch() {
 }
 
 def commitReleaseBranch() {
-  git('add .') 
+  git('add .')
   runCommand(["git", "commit", "-m", "Release version updated to " + releaseVersion])
+  git("tag " + releaseTag + " " +releaseBranch)
 }
 
 def pushTagsAndBranches() {
-  git("tag " + releaseTag + " " +releaseBranch)
   git('push origin ' + releaseFromBranch + ':' + releaseFromBranch)
   git('push origin ' + releaseBranch + ':' + releaseBranch + ' --tags')
 }
@@ -83,9 +100,10 @@ def pushTagsAndBranches() {
 def action = this.args[0]
 
 if (action == 'verify-and-create-release-branch') {
-  verifyTagDoesntExist()
+  verifyRemoteTagDoesntExist(releaseTag)
 
-  deleteLocalReleaseBranchIfNeeded()
+  deleteLocalBranchIfExists(releaseBranch)
+  deleteLocalTagIfExists(releaseTag)
   createReleaseBranch();
 } else if (action == 'commit-current-and-checkout-release-branch') {
   commitAndCheckoutReleaseBranch();
