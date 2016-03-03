@@ -18,6 +18,8 @@ def runCommand(strList) {
     print strList
   }
   println " )"
+  println "flusing"
+  System.out.flush()
 
   def proc = strList.execute()
   proc.in.eachLine { line -> println line }
