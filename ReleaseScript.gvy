@@ -1,6 +1,6 @@
-
 def env = System.getenv()
 
+releaseVersionTest = env['env.RELEASE_VERSION']
 releaseVersion = env['RELEASE_VERSION']
 releaseBranch = "release-" + releaseVersion
 releaseTag = releaseVersion
@@ -10,7 +10,7 @@ defaultBuildBranch = "master"
 
 git_cmd = "git"
 
-def runCommand(strList) {
+def runCommand(strList, ignoreExitValue=false) {
   print "[INFO] ( "
   if(strList instanceof List) {
     strList.each { print "${it} " }
@@ -18,7 +18,6 @@ def runCommand(strList) {
     print strList
   }
   println " )"
-  println "flusing"
   System.out.flush()
 
   def proc = strList.execute()
@@ -26,7 +25,7 @@ def runCommand(strList) {
   proc.out.close()
   proc.waitFor()
 
-  if (proc.exitValue()) {
+  if (!ignoreExitValue && proc.exitValue()) {
     throw new RuntimeException("Failed to execute command with error: ${proc.getErrorStream()}")
   }
   return proc.exitValue()
@@ -36,9 +35,9 @@ def git(args) {
   runCommand(git_cmd + " " + args)
 }
 
-def checkIfLocalBranchExists(branchName) {
+def checkIfLocalBranchOrTagExists(name) {
   try {
-    git('rev-parse --verify ' + branchName)
+    git('rev-parse --verify ' + name)
     return true;
   } catch (all) {
     return false;
@@ -46,7 +45,7 @@ def checkIfLocalBranchExists(branchName) {
 }
 
 def deleteLocalBranchIfExists(branchName) {
-  if (checkIfLocalBranchExists(branchName)) {
+  if (checkIfLocalBranchOrTagExists(branchName)) {
     println "[INFO] Local branch " + branchName + " exits, removing."
     git('branch -D ' + branchName)
   } else {
@@ -55,7 +54,7 @@ def deleteLocalBranchIfExists(branchName) {
 }
 
 def deleteLocalTagIfExists(tagName) {
-  if (checkIfLocalBranchExists(tagName)) {
+  if (checkIfLocalBranchOrTagExists(tagName)) {
     println "[INFO] Local tag " + tagName + " exits, removing."
     git('tag -d ' + tagName)
   } else {
@@ -78,13 +77,15 @@ def createReleaseBranch() {
   if (releaseFromBranch != defaultBuildBranch) {
     git('checkout ' + releaseFromBranch)
   }
-  git('branch ' + releaseBranch)
   git('pull origin ' + releaseFromBranch)
+  git('branch ' + releaseBranch)
 }
 
 def commitAndCheckoutReleaseBranch() {
   git('add .')
-  runCommand(["git", "commit", "-m", "Development version updated to " + developmentVersion])
+  runCommand(
+    ["git", "commit", "-m", "Development version updated to " + developmentVersion],
+    true)
   git('checkout ' + releaseBranch)
 }
 
@@ -100,6 +101,9 @@ def pushTagsAndBranches() {
 }
 
 def action = this.args[0]
+
+println releaseVersionTest
+println System.getProperty("RELEASE_VERSION")
 
 if (action == 'verify-and-create-release-branch') {
   verifyRemoteTagDoesntExist(releaseTag)
