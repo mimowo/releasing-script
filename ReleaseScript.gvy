@@ -1,6 +1,5 @@
 def env = System.getenv()
 
-releaseVersionTest = env['env.RELEASE_VERSION']
 releaseVersion = env['RELEASE_VERSION']
 releaseBranch = "release-" + releaseVersion
 releaseTag = releaseVersion
@@ -101,9 +100,6 @@ def pushTagsAndBranches() {
 }
 
 def action = this.args[0]
-
-println releaseVersionTest
-println System.getProperty("RELEASE_VERSION")
 
 if (action == 'verify-and-create-release-branch') {
   verifyRemoteTagDoesntExist(releaseTag)
